@@ -138,7 +138,10 @@ if ($_POST['submit']) {
             if ($numberOfParents == 0) {
               // If not, create parent
               $parentResource = new Resource();
-              $parentResource->titleText = $data[$_POST['parentResource']];
+              $parentResource->createLoginID = $loginID;
+              $parentResource->createDate    = date( 'Y-m-d' );
+              $parentResource->titleText     = $data[$_POST['parentResource']];
+              $parentResource->statusID      = 1;
               $parentResource->save();
               $parentID = $parentResource->resourceID;
 
