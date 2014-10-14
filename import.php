@@ -29,7 +29,7 @@ include 'templates/header.php';
 ?><div id="importPage"><h1>CSV File import</h1><?php
 
 // CSV configuration
-$required_columns = array('titleText' => 0, 'resourceURL' => 0, 'resourceAltURL' => 0, 'isbnOrISSN' => 0, 'providerText' => 0);
+$required_columns = array('titleText' => 0, 'resourceURL' => 0, 'resourceAltURL' => 0, 'isbnOrISSN' => 0, 'organization' => 0, 'role' => 0);
 
 if ($_POST['submit']) {
   $delimiter = $_POST['delimiter'];
@@ -87,6 +87,8 @@ if ($_POST['submit']) {
   if (($handle = fopen($uploadfile, "r")) !== FALSE) {
     $row = 0;
     $inserted = 0;
+    $organizationsInserted = 0;
+    $organizationsAttached = 0;
     while (($data = fgetcsv($handle, 0, $delimiter)) !== FALSE) {
       // Getting column names again for deduping
       if ($row == 0) {
@@ -125,13 +127,63 @@ if ($_POST['submit']) {
           $resource->providerText     = $data[$_POST['providerText']];
           $resource->statusID         = 1;
           $resource->save();
+
+
+          // Do we have to create an organization or attach the resource to an existing one?
+          if ($_POST['organization']) {
+            $organization = new Organization();
+            $organizationRole = new OrganizationRole();
+
+            // If we use the Organizations module
+            if ($config->settings->organizationsModule == 'Y'){
+              print "<p>Importing organizations in the organizations module is not supported yet</p>";
+            } else {
+
+              // Search if such organization already exists
+              $organizationExists = $organization->alreadyExists($data[$_POST['organization']]);
+              $parentID = null;
+              if (!$organizationExists) {
+                // If not, create it
+                $organization->shortName = $data[$_POST['organization']];
+                $organization->save();
+                $organizationID = $organization->organizationID();
+                $organizationsInserted++;
+
+              } elseif ($organizationExists == 1) {
+                // Else, 
+                $organizationID = $organization->getOrganizationIDByName($data[$_POST['organization']]);
+                $organizationsAttached++;
+              }
+
+              if ($organizationExists == 0 || $organizationExists == 1) {
+                $organizationLink = new ResourceOrganizationLink();
+                $organizationLink->resourceID = $resource->resourceID;
+                $organizationLink->organizationID = $organizationID;
+
+                // Get role
+                $organizationRoles = $organizationRole->getArray();
+                if (($roleID = array_search($data[$_POST['role']], $organizationRoles)) != 0) {
+                  $organizationLink->organizationRoleID = $roleID;
+                } else {
+                  // If role is not found, fallback to the first one.
+                  $organizationLink->organizationRoleID = '1';
+                }
+
+                $organizationLink->save();
+              }
+
+            }
+
+          }
+
           $inserted++;
         } 
       }
       $row++;
     }
     print "<h2>Results</h2>";
-    print "<p>$row rows have been processed. $inserted rows have been inserted.";
+    print "<p>$row rows have been processed. $inserted rows have been inserted.</p>";
+    print "<p>$organizationsInserted organizations have been created. $organizationsAttached resources have been attached to an existing organization.</p>";
   }
 } else {
 
