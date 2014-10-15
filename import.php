@@ -133,6 +133,7 @@ if ($_POST['submit']) {
           if ($_POST['organization']) {
             $organization = new Organization();
             $organizationRole = new OrganizationRole();
+            $organizationID = false;
 
             // If we use the Organizations module
             if ($config->settings->organizationsModule == 'Y'){
@@ -142,41 +143,13 @@ if ($_POST['submit']) {
               $result = $organization->db->processQuery($query, 'assoc');
 
               if ($result['name']) {
-                $organizationLink = new ResourceOrganizationLink();
-                $organizationLink->resourceID = $resource->resourceID;
-                $organizationLink->organizationID = $result['organizationID'];
-
-                // Get role
-                $organizationRoles = $organizationRole->getArray();
-                if (($roleID = array_search($data[$_POST['role']], $organizationRoles)) != 0) {
-                  $organizationLink->organizationRoleID = $roleID;
-                } else {
-                  // If role is not found, fallback to the first one.
-                  $organizationLink->organizationRoleID = '1';
-                }
-
-                $organizationLink->save();
+                $organizationID = $result['organizationID'];
                 $organizationsAttached++;
 
               } else {
                 $query = "INSERT INTO $dbName.Organization SET createDate=NOW(), createLoginID='$loginID', name='" . mysql_escape_string($data[$_POST['organization']]) . "'";
                 $result = $organization->db->processQuery($query);
-
-                // Get role
-                $organizationLink = new ResourceOrganizationLink();
-                $organizationRoles = $organizationRole->getArray();
-                if (($roleID = array_search($data[$_POST['role']], $organizationRoles)) != 0) {
-                  $organizationLink->organizationRoleID = $roleID;
-                } else {
-                  // If role is not found, fallback to the first one.
-                  $organizationLink->organizationRoleID = '1';
-                }
-
-
-                $organizationLink->resourceID = $resource->resourceID;
-                $organizationLink->organizationID = $result;
-                $organizationLink->save();
-
+                $organizationID = $result;
                 $organizationsInserted++;
 
               }
@@ -199,25 +172,25 @@ if ($_POST['submit']) {
                 $organizationID = $organization->getOrganizationIDByName($data[$_POST['organization']]);
                 $organizationsAttached++;
               }
+            }
 
-              if ($organizationExists == 0 || $organizationExists == 1) {
-                $organizationLink = new ResourceOrganizationLink();
-                $organizationLink->resourceID = $resource->resourceID;
-                $organizationLink->organizationID = $organizationID;
-
-                // Get role
-                $organizationRoles = $organizationRole->getArray();
-                if (($roleID = array_search($data[$_POST['role']], $organizationRoles)) != 0) {
-                  $organizationLink->organizationRoleID = $roleID;
-                } else {
-                  // If role is not found, fallback to the first one.
-                  $organizationLink->organizationRoleID = '1';
-                }
-
-                $organizationLink->save();
+            // Create link
+            if ($organizationID) {
+              // Get role
+              $organizationLink = new ResourceOrganizationLink();
+              $organizationRoles = $organizationRole->getArray();
+              if (($roleID = array_search($data[$_POST['role']], $organizationRoles)) != 0) {
+                $organizationLink->organizationRoleID = $roleID;
+              } else {
+                // If role is not found, fallback to the first one.
+                $organizationLink->organizationRoleID = '1';
               }
 
+              $organizationLink->resourceID = $resource->resourceID;
+              $organizationLink->organizationID = $organizationID;
+              $organizationLink->save();
             }
+
 
           }
 
