@@ -136,7 +136,52 @@ if ($_POST['submit']) {
 
             // If we use the Organizations module
             if ($config->settings->organizationsModule == 'Y'){
-              print "<p>Importing organizations in the organizations module is not supported yet</p>";
+              
+              $dbName = $config->settings->organizationsDatabaseName;
+              $query = "SELECT name, organizationID FROM $dbName.Organization WHERE UPPER(name) = '" . str_replace("'", "''", strtoupper($data[$_POST['organization']])) . "'";
+              $result = $organization->db->processQuery($query, 'assoc');
+
+              if ($result['name']) {
+                $organizationLink = new ResourceOrganizationLink();
+                $organizationLink->resourceID = $resource->resourceID;
+                $organizationLink->organizationID = $result['organizationID'];
+
+                // Get role
+                $organizationRoles = $organizationRole->getArray();
+                if (($roleID = array_search($data[$_POST['role']], $organizationRoles)) != 0) {
+                  $organizationLink->organizationRoleID = $roleID;
+                } else {
+                  // If role is not found, fallback to the first one.
+                  $organizationLink->organizationRoleID = '1';
+                }
+
+                $organizationLink->save();
+                $organizationsAttached++;
+
+              } else {
+                $query = "INSERT INTO $dbName.Organization SET createDate=NOW(), createLoginID='$loginID', name='" . mysql_escape_string($data[$_POST['organization']]) . "'";
+                $result = $organization->db->processQuery($query);
+
+                // Get role
+                $organizationLink = new ResourceOrganizationLink();
+                $organizationRoles = $organizationRole->getArray();
+                if (($roleID = array_search($data[$_POST['role']], $organizationRoles)) != 0) {
+                  $organizationLink->organizationRoleID = $roleID;
+                } else {
+                  // If role is not found, fallback to the first one.
+                  $organizationLink->organizationRoleID = '1';
+                }
+
+
+                $organizationLink->resourceID = $resource->resourceID;
+                $organizationLink->organizationID = $result;
+                $organizationLink->save();
+
+                $organizationsInserted++;
+
+              }
+
+
             } else {
 
               // Search if such organization already exists
