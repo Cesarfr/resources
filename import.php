@@ -89,6 +89,7 @@ if ($_POST['submit']) {
     $inserted = 0;
     $organizationsInserted = 0;
     $organizationsAttached = 0;
+    $arrayOrganizationsCreated = array();
     while (($data = fgetcsv($handle, 0, $delimiter)) !== FALSE) {
       // Getting column names again for deduping
       if ($row == 0) {
@@ -131,6 +132,7 @@ if ($_POST['submit']) {
 
           // Do we have to create an organization or attach the resource to an existing one?
           if ($_POST['organization']) {
+            $organizationName = $data[$_POST['organization']];
             $organization = new Organization();
             $organizationRole = new OrganizationRole();
             $organizationID = false;
@@ -139,38 +141,54 @@ if ($_POST['submit']) {
             if ($config->settings->organizationsModule == 'Y'){
               
               $dbName = $config->settings->organizationsDatabaseName;
-              $query = "SELECT name, organizationID FROM $dbName.Organization WHERE UPPER(name) = '" . str_replace("'", "''", strtoupper($data[$_POST['organization']])) . "'";
+
+              // Does the organization already exists?
+              $query = "SELECT count(*) AS count FROM $dbName.Organization WHERE UPPER(name) = '" . str_replace("'", "''", strtoupper($organizationName)) . "'";
               $result = $organization->db->processQuery($query, 'assoc');
 
-              if ($result['name']) {
+              // If not, we try to create it
+              if ($result['count'] == 0) {
+                $query = "INSERT INTO $dbName.Organization SET createDate=NOW(), createLoginID='$loginID', name='" . mysql_escape_string($organizationName) . "'";
+                try {
+                  $result = $organization->db->processQuery($query);
+                  $organizationID = $result;
+                  $organizationsInserted++;
+                  array_push($arrayOrganizationsCreated, $organizationName);
+                } catch (Exception $e) {
+                  print "<p>Organization $organizationName could not be added.</p>";
+                }
+
+              // If yes, we attach it to our resource
+              } elseif ($result['count'] == 1) {
+
+                $query = "SELECT name, organizationID FROM $dbName.Organization WHERE UPPER(name) = '" . str_replace("'", "''", strtoupper($organizationName)) . "'";
+                $result = $organization->db->processQuery($query, 'assoc');
                 $organizationID = $result['organizationID'];
                 $organizationsAttached++;
 
               } else {
-                $query = "INSERT INTO $dbName.Organization SET createDate=NOW(), createLoginID='$loginID', name='" . mysql_escape_string($data[$_POST['organization']]) . "'";
-                $result = $organization->db->processQuery($query);
-                $organizationID = $result;
-                $organizationsInserted++;
-
+                print "<p>Error: more than one organization is called $organizationName. Please consider deduping.</p>";
               }
-
 
             } else {
 
               // Search if such organization already exists
-              $organizationExists = $organization->alreadyExists($data[$_POST['organization']]);
+              $organizationExists = $organization->alreadyExists($organizationName);
               $parentID = null;
               if (!$organizationExists) {
                 // If not, create it
-                $organization->shortName = $data[$_POST['organization']];
+                $organization->shortName = $organizationName;
                 $organization->save();
                 $organizationID = $organization->organizationID();
                 $organizationsInserted++;
+                array_push($arrayOrganizationsCreated, $organizationName);
 
               } elseif ($organizationExists == 1) {
                 // Else, 
-                $organizationID = $organization->getOrganizationIDByName($data[$_POST['organization']]);
+                $organizationID = $organization->getOrganizationIDByName($organizationName);
                 $organizationsAttached++;
+              } else {
+                print "<p>Error: more than one organization is called $organizationName. Please consider deduping.</p>";
               }
             }
 
@@ -201,7 +219,9 @@ if ($_POST['submit']) {
     }
     print "<h2>Results</h2>";
     print "<p>$row rows have been processed. $inserted rows have been inserted.</p>";
-    print "<p>$organizationsInserted organizations have been created. $organizationsAttached resources have been attached to an existing organization.</p>";
+    print "<p>$organizationsInserted organizations have been created";
+    if (count($arrayOrganizationsCreated) > 0) print " (" . implode(',', $arrayOrganizationsCreated) . ")";
+    print ". $organizationsAttached resources have been attached to an existing organization.</p>";
   }
 } else {
 
