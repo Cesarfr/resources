@@ -131,7 +131,7 @@ if ($_POST['submit']) {
 
 
           // Do we have to create an organization or attach the resource to an existing one?
-          if ($_POST['organization']) {
+          if ($data[$_POST['organization']]) {
             $organizationName = $data[$_POST['organization']];
             $organization = new Organization();
             $organizationRole = new OrganizationRole();
