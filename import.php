@@ -130,7 +130,7 @@ if ($_POST['submit']) {
           $resource->save();
 
           // Do we have a parent resource to create?
-          if ($_POST['parentResource']) {
+          if ($data[$_POST['parentResource']]) {
 
             // Search if such parent exists
             $numberOfParents = count($resource->getResourceByTitle($data[$_POST['parentResource']]));
