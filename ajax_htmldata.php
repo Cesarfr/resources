@@ -40,15 +40,21 @@ switch ($_GET['action']) {
 			$updateUser = new User(new NamedArguments(array('primaryKey' => $resource->updateLoginID)));
 			$archiveUser = new User(new NamedArguments(array('primaryKey' => $resource->archiveLoginID)));
 
-			//get parent resource
-			//only returns one - ResourceRelationship object
-			$resourceRelationship = new ResourceRelationship();
-			$resourceRelationship = $resource->getParentResource();
-			$parentResource = new Resource(new NamedArguments(array('primaryKey' => $resourceRelationship->relatedResourceID)));
+      //get parents resources
+      $sanitizedInstance = array();
+      $instance = new Resource();
+      $parentResourceArray = array();
+      foreach ($resource->getParentResources() as $instance) {
+        foreach (array_keys($instance->attributeNames) as $attributeName) {
+          $sanitizedInstance[$attributeName] = $instance->$attributeName;
+        }
+
+        $sanitizedInstance[$instance->primaryKeyName] = $instance->primaryKey;
+        array_push($parentResourceArray, $sanitizedInstance);
+      }
+
 
 			//get children resources
-			$sanitizedInstance = array();
-			$instance = new Resource();
 			$childResourceArray = array();
 			foreach ($resource->getChildResources() as $instance) {
 				foreach (array_keys($instance->attributeNames) as $attributeName) {
@@ -181,7 +187,7 @@ switch ($_GET['action']) {
 
 
 
-			if (($parentResource->titleText) || (count($childResourceArray) > 0)){ ?>
+		if ((count($parentResourceArray) > 0) || (count($childResourceArray) > 0)){ ?>
 				<tr>
 				<td style='vertical-align:top;width:115px;'>Related Products:
 					<?php if (count($childResourceArray) > 0) { ?>
@@ -191,11 +197,14 @@ switch ($_GET['action']) {
 				<td style='width:345px;'>
 				<?php
 
-					if ($parentResource->titleText){
-						echo "<span style='float: left;'>" . $parentResource->titleText . "&nbsp;&nbsp;(Parent)&nbsp;&nbsp;<a href='resource.php?resourceID=" . $parentResource->resourceID . "' target='_BLANK'><img src='images/arrow-up-right.gif' alt='view resource' title='View " . $parentResource->titleText . "' style='vertical-align:top;'></a></span><br />";
-					} else {
-						echo "<br />";
-					}
+				if (count($parentResourceArray) > 0) { ?>
+        <?php
+           foreach ($parentResourceArray as $parentResource){
+              $parentResourceObj = new Resource(new NamedArguments(array('primaryKey' => $parentResource['relatedResourceID'])));
+
+						echo "<span style='float: left;'>" . $parentResourceObj->titleText . "&nbsp;&nbsp;(Parent)&nbsp;&nbsp;<a href='resource.php?resourceID=" . $parentResourceObj->resourceID . "' target='_BLANK'><img src='images/arrow-up-right.gif' alt='view resource' title='View " . $parentResourceObj->titleText . "' style='vertical-align:top;'></a></span><br />";
+            }
+         }
 
 				?>
 
@@ -1551,16 +1560,22 @@ switch ($_GET['action']) {
 
 		$config=new Configuration();
 
-		//get parent resource
-		$resourceRelationship = new ResourceRelationship();
-		$resourceRelationship = $resource->getParentResource();
-		$parentResource = new Resource(new NamedArguments(array('primaryKey' => $resourceRelationship->relatedResourceID)));
+    //get parents resources
+    $sanitizedInstance = array();
+    $instance = new Resource();
+    $parentResourceArray = array();
+    foreach ($resource->getParentResources() as $instance) {
+      foreach (array_keys($instance->attributeNames) as $attributeName) {
+        $sanitizedInstance[$attributeName] = $instance->$attributeName;
+      }
+
+      $sanitizedInstance[$instance->primaryKeyName] = $instance->primaryKey;
+      array_push($parentResourceArray, $sanitizedInstance);
+    }
 
 
-
+		
 		//get children resources
-		$sanitizedInstance = array();
-		$instance = new Resource();
 		$childResourceArray = array();
 		foreach ($resource->getChildResources() as $instance) {
 			foreach (array_keys($instance->attributeNames) as $attributeName) {
@@ -1586,17 +1601,19 @@ switch ($_GET['action']) {
 		}
 		echo "</div>";
 
-		if (($parentResource->titleText) || (count($childResourceArray) > 0)){
-
-		?>
+		if ((count($parentResourceArray) > 0) || (count($childResourceArray) > 0)){ ?>
 			<div style='background-color:white; width:219px; padding:7px;'>
 				<?php
 
-				if ($parentResource->titleText){
-					echo "<div class='rightPanelHeader'>Parent Record</div>";
-					echo "<div class='rightPanelLink'><a href='resource.php?resourceID=" . $parentResource->resourceID . "' target='_BLANK' class='helpfulLink'>" . $parentResource->titleText . "</a></div>";
-					echo "</br>";
-				}
+				if ((count($parentResourceArray) > 0)){
+
+					echo "<div class='rightPanelHeader'>Parent Record(s)</div>";
+          foreach ($parentResourceArray as $parentResource){
+            $parentResourceObj = new Resource(new NamedArguments(array('primaryKey' => $parentResource['relatedResourceID'])));
+              echo "<div class='rightPanelLink'><a href='resource.php?resourceID=" . $parentResourceObj->resourceID . "' target='_BLANK' class='helpfulLink'>" . $parentResourceObj->titleText . "</a></div>";
+
+          }
+      }
 
 				if ((count($childResourceArray) > 0)){
 					echo "<div class='rightPanelHeader'>Child Record(s)</div>";

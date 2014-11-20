@@ -263,19 +263,24 @@ switch ($_GET['action']) {
 		//first remove the existing relationship then add it back
 		$resource->removeParentResources();
 
-		if (($_POST['parentResourceName']) && ($_POST['parentResourceID']) && ($_POST['parentResourceID'] != $resourceID)){
-			$resourceRelationship = new ResourceRelationship();
-			$resourceRelationship->resourceID = $resourceID;
-			$resourceRelationship->relatedResourceID = $_POST['parentResourceID'];
-			$resourceRelationship->relationshipTypeID = '1';  //hardcoded because we're only allowing parent relationships
+		if (($_POST['parentResourcesID'])){
 
-			try {
-				$resourceRelationship->save();
+      $parentResourcesArray = json_decode($_POST['parentResourcesID']);
 
-			} catch (Exception $e) {
-				echo $e->getMessage();
-			}
-		}
+      foreach($parentResourcesArray as $parentResource) {
+        $resourceRelationship = new ResourceRelationship();
+        $resourceRelationship->resourceID = $resourceID;
+        $resourceRelationship->relatedResourceID = $parentResource;
+        $resourceRelationship->relationshipTypeID = '1';  //hardcoded because we're only allowing parent relationships
+
+        try {
+          $resourceRelationship->save();
+
+        } catch (Exception $e) {
+          echo $e->getMessage();
+        }
+      }
+    }
 
 		//next, delete and then re-insert the aliases
 		$alias = new Alias();
