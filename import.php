@@ -29,7 +29,7 @@ include 'templates/header.php';
 ?><div id="importPage"><h1>CSV File import</h1><?php
 
 // CSV configuration
-$required_columns = array('titleText' => 0, 'resourceURL' => 0, 'resourceAltURL' => 0, 'providerText' => 0 , 'parentResource' => 0);
+$required_columns = array('titleText' => 0, 'resourceURL' => 0, 'resourceAltURL' => 0, 'parentResource' => 0, 'organization' => 0, 'role' => 0);
 
 if ($_POST['submit']) {
   $delimiter = $_POST['delimiter'];
@@ -89,6 +89,9 @@ if ($_POST['submit']) {
     $inserted = 0;
     $parentInserted = 0;
     $parentAttached = 0;
+    $organizationsInserted = 0;
+    $organizationsAttached = 0;
+    $arrayOrganizationsCreated = array();
     while (($data = fgetcsv($handle, 0, $delimiter)) !== FALSE) {
       // Getting column names again for deduping
       if ($row == 0) {
@@ -128,6 +131,8 @@ if ($_POST['submit']) {
 
           $resource->save();
 
+          $resource->setIsbnOrIssn($deduping_values);
+
           // Do we have a parent resource to create?
           if ($data[$_POST['parentResource']]) {
 
@@ -163,6 +168,120 @@ if ($_POST['submit']) {
             }
 
           }
+
+          // Do we have to create an organization or attach the resource to an existing one?
+          if ($data[$_POST['organization']]) {
+            $organizationName = $data[$_POST['organization']];
+            $organization = new Organization();
+            $organizationRole = new OrganizationRole();
+            $organizationID = false;
+
+            // If we use the Organizations module
+            if ($config->settings->organizationsModule == 'Y'){
+              
+              $dbName = $config->settings->organizationsDatabaseName;
+
+              // Does the organization already exists?
+              $query = "SELECT count(*) AS count FROM $dbName.Organization WHERE UPPER(name) = '" . str_replace("'", "''", strtoupper($organizationName)) . "'";
+              $result = $organization->db->processQuery($query, 'assoc');
+
+              // If not, we try to create it
+              if ($result['count'] == 0) {
+                $query = "INSERT INTO $dbName.Organization SET createDate=NOW(), createLoginID='$loginID', name='" . mysql_escape_string($organizationName) . "'";
+                try {
+                  $result = $organization->db->processQuery($query);
+                  $organizationID = $result;
+                  $organizationsInserted++;
+                  array_push($arrayOrganizationsCreated, $organizationName);
+                } catch (Exception $e) {
+                  print "<p>Organization $organizationName could not be added.</p>";
+                }
+
+              // If yes, we attach it to our resource
+              } elseif ($result['count'] == 1) {
+                $query = "SELECT name, organizationID FROM $dbName.Organization WHERE UPPER(name) = '" . str_replace("'", "''", strtoupper($organizationName)) . "'";
+                $result = $organization->db->processQuery($query, 'assoc');
+                $organizationID = $result['organizationID'];
+                $organizationsAttached++;
+
+              } else {
+                print "<p>Error: more than one organization is called $organizationName. Please consider deduping.</p>";
+              }
+
+              if ($organizationID) {
+                $dbName = $config->settings->organizationsDatabaseName;
+
+                // Get role
+                $query = "SELECT organizationRoleID from OrganizationRole WHERE shortName='" . mysql_escape_string($data[$_POST['role']]) . "'";
+                $result = $organization->db->processQuery($query);
+
+                // If role is not found, fallback to the first one.
+                $roleID = ($result[0]) ? $result[0] : 1;
+
+                // Does the organizationRole already exists?
+                $query = "SELECT count(*) AS count FROM $dbName.OrganizationRoleProfile WHERE organizationID=$organizationID AND organizationRoleID=$roleID";
+                $result = $organization->db->processQuery($query, 'assoc');
+
+                // If not, we try to create it
+                if ($result['count'] == 0) {
+
+                  $query = "INSERT INTO $dbName.OrganizationRoleProfile SET organizationID=$organizationID, organizationRoleID=$roleID";
+                  try {
+                    $result = $organization->db->processQuery($query);
+                    if (!in_array($organizationName, $arrayOrganizationsCreated)) {
+                      $organizationsInserted++;
+                      array_push($arrayOrganizationsCreated, $organizationName);
+                    }
+                  } catch (Exception $e) {
+                    print "<p>Unable to associate organization $organizationName with its role.</p>";
+                  }
+                }
+
+              }
+
+
+            // If we do not use the Organizations module
+            } else {
+
+              // Search if such organization already exists
+              $organizationExists = $organization->alreadyExists($organizationName);
+              $parentID = null;
+              if (!$organizationExists) {
+                // If not, create it
+                $organization->shortName = $organizationName;
+                $organization->save();
+                $organizationID = $organization->organizationID();
+                $organizationsInserted++;
+                array_push($arrayOrganizationsCreated, $organizationName);
+
+              } elseif ($organizationExists == 1) {
+                // Else, 
+                $organizationID = $organization->getOrganizationIDByName($organizationName);
+                $organizationsAttached++;
+              } else {
+                print "<p>Error: more than one organization is called $organizationName. Please consider deduping.</p>";
+              }
+
+              // Find role
+              $organizationRoles = $organizationRole->getArray();
+              if (($roleID = array_search($data[$_POST['role']], $organizationRoles)) == 0) {
+                // If role is not found, fallback to the first one.
+                $roleID = '1';
+              } 
+
+            }
+
+            // Let's link the resource and the organization.
+            // (this has to be done whether the module Organization is in use or not)
+            if ($organizationID && $roleID) {
+              $organizationLink = new ResourceOrganizationLink();
+              $organizationLink->organizationRoleID = $roleID;
+              $organizationLink->resourceID = $resource->resourceID;
+              $organizationLink->organizationID = $organizationID;
+              $organizationLink->save();
+            }
+          }
+
           $inserted++;
         } 
       }
@@ -171,7 +290,9 @@ if ($_POST['submit']) {
     print "<h2>Results</h2>";
     print "<p>$row rows have been processed. $inserted rows have been inserted.</p>";
     print "<p>$parentInserted parents have been created. $parentAttached resources have been attached to an existing parent.</p>";
-
+    print "<p>$organizationsInserted organizations have been created";
+    if (count($arrayOrganizationsCreated) > 0) print " (" . implode(',', $arrayOrganizationsCreated) . ")";
+    print ". $organizationsAttached resources have been attached to an existing organization.</p>";
   }
 } else {
 
