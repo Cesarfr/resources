@@ -29,7 +29,7 @@ include 'templates/header.php';
 ?><div id="importPage"><h1>CSV File import</h1><?php
 
 // CSV configuration
-$required_columns = array('titleText' => 0, 'resourceURL' => 0, 'resourceAltUrl' => 0, 'providerText' => 0);
+$required_columns = array('titleText' => 0, 'resourceURL' => 0, 'resourceAltURL' => 0, 'providerText' => 0 , 'parentResource' => 0);
 
 if ($_POST['submit']) {
   $delimiter = $_POST['delimiter'];
@@ -87,6 +87,8 @@ if ($_POST['submit']) {
   if (($handle = fopen($uploadfile, "r")) !== FALSE) {
     $row = 0;
     $inserted = 0;
+    $parentInserted = 0;
+    $parentAttached = 0;
     while (($data = fgetcsv($handle, 0, $delimiter)) !== FALSE) {
       // Getting column names again for deduping
       if ($row == 0) {
@@ -125,14 +127,51 @@ if ($_POST['submit']) {
           $resource->statusID         = 1;
 
           $resource->save();
-          $resource->setIsbnOrIssn($deduping_values); 
+
+          // Do we have a parent resource to create?
+          if ($data[$_POST['parentResource']]) {
+
+            // Search if such parent exists
+            $numberOfParents = count($resource->getResourceByTitle($data[$_POST['parentResource']]));
+            $parentID = null;
+            if ($numberOfParents == 0) {
+              // If not, create parent
+              $parentResource = new Resource();
+              $parentResource->createLoginID = $loginID;
+              $parentResource->createDate    = date( 'Y-m-d' );
+              $parentResource->titleText     = $data[$_POST['parentResource']];
+              $parentResource->statusID      = 1;
+              $parentResource->save();
+              $parentID = $parentResource->resourceID;
+
+              $parentInserted++;
+
+            } elseif ($numberOfParents == 1) {
+              // Else, attach the resource to its parent.
+              $parentResource = $resource->getResourceByTitle($data[$_POST['parentResource']]);
+              $parentID = $parentResource[0]->resourceID;
+              
+              $parentAttached++; 
+            }
+
+            if ($numberOfParents == 0 || $numberOfParents == 1) {
+              $resourceRelationship = new ResourceRelationship();
+              $resourceRelationship->resourceID = $resource->resourceID;
+              $resourceRelationship->relatedResourceID = $parentID;
+              $resourceRelationship->relationshipTypeID = '1';  //hardcoded because we're only allowing parent relationships
+              $resourceRelationship->save();
+            }
+
+          }
           $inserted++;
         } 
       }
       $row++;
     }
     print "<h2>Results</h2>";
-    print "<p>" . ($row - 1) ." rows have been processed. $inserted rows have been inserted.";
+    print "<p>$row rows have been processed. $inserted rows have been inserted.</p>";
+    print "<p>$parentInserted parents have been created. $parentAttached resources have been attached to an existing parent.</p>";
+
   }
 } else {
 
