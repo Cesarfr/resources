@@ -296,7 +296,7 @@ if ($_POST['submit']) {
     }
 
     print "<h2>Results</h2>";
-    print "<p>$row rows have been processed. $inserted rows have been inserted.</p>";
+    print "<p>" . ($row - 1) . " rows have been processed. $inserted rows have been inserted.</p>";
     print "<p>$parentInserted parents have been created. $parentAttached resources have been attached to an existing parent.</p>";
     print "<p>$organizationsInserted organizations have been created";
     if (count($arrayOrganizationsCreated) > 0) print " (" . implode(',', $arrayOrganizationsCreated) . ")";
