@@ -109,11 +109,13 @@ if ($_POST['submit']) {
         // Deduping
         unset($deduping_values);
         $resource = new Resource(); 
+        $resourceObj = new Resource(); 
 
         foreach ($deduping_columns as $value) {
           $deduping_values[] = $data[$value];
         }
-        if (count($resource->getResourceByIsbnOrISSN($deduping_values)) == 0) {
+        $deduping_count = count($resourceObj->getResourceByIsbnOrISSN($deduping_values));
+        if ($deduping_count == 0) {
 
           // Convert to UTF-8
           $data = array_map(function($row) { return mb_convert_encoding($row, 'UTF-8'); }, $data);
@@ -133,41 +135,7 @@ if ($_POST['submit']) {
 
           $resource->setIsbnOrIssn($deduping_values);
 
-          // Do we have a parent resource to create?
-          if ($data[$_POST['parentResource']]) {
-
-            // Search if such parent exists
-            $numberOfParents = count($resource->getResourceByTitle($data[$_POST['parentResource']]));
-            $parentID = null;
-            if ($numberOfParents == 0) {
-              // If not, create parent
-              $parentResource = new Resource();
-              $parentResource->createLoginID = $loginID;
-              $parentResource->createDate    = date( 'Y-m-d' );
-              $parentResource->titleText     = $data[$_POST['parentResource']];
-              $parentResource->statusID      = 1;
-              $parentResource->save();
-              $parentID = $parentResource->resourceID;
-
-              $parentInserted++;
-
-            } elseif ($numberOfParents == 1) {
-              // Else, attach the resource to its parent.
-              $parentResource = $resource->getResourceByTitle($data[$_POST['parentResource']]);
-              $parentID = $parentResource[0]->resourceID;
-              
-              $parentAttached++; 
-            }
-
-            if ($numberOfParents == 0 || $numberOfParents == 1) {
-              $resourceRelationship = new ResourceRelationship();
-              $resourceRelationship->resourceID = $resource->resourceID;
-              $resourceRelationship->relatedResourceID = $parentID;
-              $resourceRelationship->relationshipTypeID = '1';  //hardcoded because we're only allowing parent relationships
-              $resourceRelationship->save();
-            }
-
-          }
+          $inserted++;
 
           // Do we have to create an organization or attach the resource to an existing one?
           if ($data[$_POST['organization']]) {
@@ -282,11 +250,51 @@ if ($_POST['submit']) {
             }
           }
 
-          $inserted++;
-        } 
-      }
+
+        } elseif ($deduping_count == 1) {
+          $resources = $resourceObj->getResourceByIsbnOrISSN($deduping_values);
+          $resource = $resources[0];
+        }
+
+          // Do we have a parent resource to create?
+          if ($data[$_POST['parentResource']] && ($deduping_count == 0 || $deduping_count == 1) ) {
+
+            // Search if such parent exists
+            $numberOfParents = count($resourceObj->getResourceByTitle($data[$_POST['parentResource']]));
+            $parentID = null;
+            if ($numberOfParents == 0) {
+              // If not, create parent
+              $parentResource = new Resource();
+              $parentResource->createLoginID = $loginID;
+              $parentResource->createDate    = date( 'Y-m-d' );
+              $parentResource->titleText     = $data[$_POST['parentResource']];
+              $parentResource->statusID      = 1;
+              $parentResource->save();
+              $parentID = $parentResource->resourceID;
+
+              $parentInserted++;
+
+            } elseif ($numberOfParents == 1) {
+              // Else, attach the resource to its parent.
+              $parentResource = $resourceObj->getResourceByTitle($data[$_POST['parentResource']]);
+              $parentID = $parentResource[0]->resourceID;
+              
+              $parentAttached++; 
+            }
+            if ($numberOfParents == 0 || $numberOfParents == 1) {
+              $resourceRelationship = new ResourceRelationship();
+              $resourceRelationship->resourceID = $resource->resourceID;
+              $resourceRelationship->relatedResourceID = $parentID;
+              $resourceRelationship->relationshipTypeID = '1';  //hardcoded because we're only allowing parent relationships
+              if (!$resourceRelationship->exists()) {
+                $resourceRelationship->save();
+              }
+            }
+          } 
+        }
       $row++;
     }
+
     print "<h2>Results</h2>";
     print "<p>$row rows have been processed. $inserted rows have been inserted.</p>";
     print "<p>$parentInserted parents have been created. $parentAttached resources have been attached to an existing parent.</p>";
