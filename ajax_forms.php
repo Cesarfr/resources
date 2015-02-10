@@ -680,7 +680,24 @@ switch ($_GET['action']) {
 
 					<tr>
 					<td style='vertical-align:top;text-align:left;font-weight:bold;'><label for='isbnOrISSN'>ISSN / ISBN:</label></td>
-					<td><input type='text' id='isbnOrISSN' name='isbnOrISSN' value = '<?php echo $resource->isbnOrISSN; ?>' style='width:97px;' class='changeInput'  /><span id='span_errors_isbnOrISSN' class='smallDarkRedText'></span></td>
+					<td>
+          <span id="newIsbn">
+           <input type='text' class='isbnOrISSN isbnOrISSN_new' name='isbnOrISSN' value = "" style='width:97px;' class='changeInput'  /><span id='span_errors_isbnOrISSN' class='smallDarkRedText'></span>
+				   <a href='javascript:void();'><img src='images/add.gif' class='addIsbn' alt='add Isbn' title='add Isbn'></a><br />
+           <hr /><br />
+           </span>
+           <span id="existingIsbn">
+          <?php
+           $isbnOrIssns = $resource->getIsbnOrIssn();
+           $i = 1;
+           foreach ($isbnOrIssns as $isbnOrIssn) {
+             ?><input type='text' class='isbnOrISSN' name='isbnOrISSN' value = '<?php echo $isbnOrIssn->isbnOrIssn; ?>' style='width:97px;' class='changeInput'  /><br /><?php
+             $i++;
+           }
+
+          ?>
+          </span>
+          </td>
 					</tr>
 
 

@@ -227,11 +227,13 @@ switch ($_GET['action']) {
 
 		$resource->titleText 			= $_POST['titleText'];
 		$resource->descriptionText 		= $_POST['descriptionText'];
-		$resource->isbnOrISSN 			= $_POST['isbnOrISSN'];
 		$resource->resourceFormatID 	= $_POST['resourceFormatID'];
 		$resource->resourceTypeID 		= $_POST['resourceTypeID'];
 		$resource->resourceURL 			= $_POST['resourceURL'];
 		$resource->resourceAltURL 		= $_POST['resourceAltURL'];
+
+    $isbnarray = json_decode($_POST['isbnOrISSN']);
+    $resource->setIsbnOrIssn($isbnarray);
 
 		//to determine status id
 		$status = new Status();

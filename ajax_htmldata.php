@@ -221,11 +221,16 @@ switch ($_GET['action']) {
 				}
 			}
 
-			if ($resource->isbnOrISSN){
+			if ($isbnOrIssns = $resource->getIsbnOrIssn()){
 			?>
 			<tr>
 			<td style='vertical-align:top;width:115px;'>ISSN / ISBN:</td>
-			<td style='width:345px;'><?php echo $resource->isbnOrISSN; ?></td>
+			<td style='width:345px;'>
+      <?php 
+        foreach ($isbnOrIssns as $isbnOrIssn) {
+          print $isbnOrIssn->isbnOrIssn . "<br />";
+        }
+      ?></td>
 			</tr>
 			<?php
 			}
