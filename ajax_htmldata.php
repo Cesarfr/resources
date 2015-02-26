@@ -194,9 +194,6 @@ switch ($_GET['action']) {
 		if ((count($parentResourceArray) > 0) || (count($childResourceArray) > 0)){ ?>
 				<tr>
 				<td style='vertical-align:top;width:115px;'>Related Products:
-					<?php if (count($childResourceArray) > 0) { ?>
-						<br><span style='float: right;'>Child:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<br></span>
-					<?php } ?>
 				</td>
 				<td style='width:345px;'>
 				<?php
@@ -206,7 +203,7 @@ switch ($_GET['action']) {
            foreach ($parentResourceArray as $parentResource){
               $parentResourceObj = new Resource(new NamedArguments(array('primaryKey' => $parentResource['relatedResourceID'])));
 
-						echo "<span style='float: left;'>" . $parentResourceObj->titleText . "&nbsp;&nbsp;(Parent)&nbsp;&nbsp;<a href='resource.php?resourceID=" . $parentResourceObj->resourceID . "' target='_BLANK'><img src='images/arrow-up-right.gif' alt='view resource' title='View " . $parentResourceObj->titleText . "' style='vertical-align:top;'></a></span><br />";
+						echo $parentResourceObj->titleText . "&nbsp;&nbsp;(Parent)&nbsp;&nbsp;<a href='resource.php?resourceID=" . $parentResourceObj->resourceID . "' target='_BLANK'><img src='images/arrow-up-right.gif' alt='view resource' title='View " . $parentResourceObj->titleText . "' style='vertical-align:top;'></a><br />";
             }
          }
 
@@ -218,7 +215,7 @@ switch ($_GET['action']) {
 					<?php
 					foreach ($childResourceArray as $childResource){
 						$childResourceObj = new Resource(new NamedArguments(array('primaryKey' => $childResource['resourceID'])));
-						echo "<span style='float: left;'>" . $childResourceObj->titleText . "<a href='resource.php?resourceID=" . $childResourceObj->resourceID . "' target='_BLANK'><img src='images/arrow-up-right.gif' alt='view resource' title='View " . $childResourceObj->titleText . "' style='vertical-align:top;'></a></span><br />";
+						echo $childResourceObj->titleText . "<a href='resource.php?resourceID=" . $childResourceObj->resourceID . "' target='_BLANK'><img src='images/arrow-up-right.gif' alt='view resource' title='View " . $childResourceObj->titleText . "' style='vertical-align:top;'></a><br />";
 					}
 
 
